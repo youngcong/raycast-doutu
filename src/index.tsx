@@ -1,14 +1,44 @@
-import { useState } from "react";
-import { ActionPanel, Action, Icon, Grid, Color } from "@raycast/api";
+import { useEffect, useState } from 'react';
+import { ActionPanel, Action, Icon, Grid } from '@raycast/api';
+import { fetchGIFs, searchGIFs } from './utils/request';
+import { DoutuItem } from './models';
+import copyFileToClipboard from './utils/copyFileToClipboard';
 
 export default function Command() {
   const [itemSize, setItemSize] = useState<Grid.ItemSize>(Grid.ItemSize.Medium);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
+
+  const [pictures, setPictures] = useState<DoutuItem[]>([]);
+
+  async function defaultFetch() {
+    setIsLoading(true);
+    const data = await fetchGIFs();
+    setIsLoading(false);
+    setPictures(data);
+  }
+
+  useEffect(() => {
+    if (!searchText) {
+      defaultFetch();
+      return;
+    }
+
+    const fetching = async () => {
+      setIsLoading(true);
+      const data = await searchGIFs({ keyword: searchText });
+      setIsLoading(false);
+      setPictures(data);
+    };
+
+    fetching();
+  }, [searchText]);
+
   return (
     <Grid
       itemSize={itemSize}
-      inset={Grid.Inset.Large}
       isLoading={isLoading}
+      onSearchTextChange={setSearchText}
       searchBarAccessory={
         <Grid.Dropdown
           tooltip="Grid Item Size"
@@ -25,15 +55,19 @@ export default function Command() {
       }
     >
       {!isLoading &&
-        Object.entries(Icon).map(([name, icon]) => (
+        pictures.map(({ id, url, fileName }) => (
           <Grid.Item
-            key={name}
-            content={{ value: { source: icon, tintColor: Color.PrimaryText }, tooltip: name }}
-            title={name}
-            subtitle={icon}
+            key={id}
+            content={{ source: url }}
             actions={
               <ActionPanel>
-                <Action.CopyToClipboard content={icon} />
+                <Action
+                  icon={Icon.Clipboard}
+                  key="copyFile"
+                  title="Copy GIF"
+                  onAction={() => copyFileToClipboard(url, fileName)}
+                  shortcut={{ modifiers: ['cmd', 'opt'], key: 'c' }}
+                />
               </ActionPanel>
             }
           />
